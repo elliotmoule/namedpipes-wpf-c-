@@ -1,0 +1,7 @@
+.vs/
+ClientApp/bin/
+ClientApp/obj/
+ServerApp/bin/
+ServerApp/obj/
+Shared/bin/
+Shared/obj/
