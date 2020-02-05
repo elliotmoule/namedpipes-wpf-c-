@@ -11,15 +11,14 @@ namespace ClientApp
     {
         private MainWindow _parent;
         private NamedPipeClientStream _clientPipe;
-        private StreamWriter _writer;
-        private StreamReader _reader;
-        private bool _close;
+        private StreamString _streamString;
+        private bool _serverClose;
         public event EventHandler ClientClosed;
 
         public ClientPipe(MainWindow parent)
         {
             this._parent = parent;
-            _close = false;
+            _serverClose = false;
             StartClient();
         }
 
@@ -36,7 +35,7 @@ namespace ClientApp
         {
             if (_clientPipe != null && _clientPipe.IsConnected)
             {
-                PipeUtilities.SendPipedMessage(_writer, message);
+                PipeUtilities.SendPipedMessage(_streamString, message);
                 return true;
             }
             return false;
@@ -44,16 +43,20 @@ namespace ClientApp
 
         public void StopClient()
         {
-            _close = true;
+            if (_clientPipe != null && _clientPipe.IsConnected)
+            {
+                _clientPipe.Close();
+                _serverClose = true;
+            }
         }
 
         private void StartClient()
         {
             try
             {
-                Task.Factory.StartNew(async () =>
+                Task.Factory.StartNew(() =>
                 {
-                    await RunClientAsync();
+                    RunClient();
                 });
             }
             catch (Exception ex)
@@ -62,17 +65,14 @@ namespace ClientApp
             }
         }
 
-        private async Task RunClientAsync()
+        private void RunClient()
         {
             try
             {
                 _clientPipe = new NamedPipeClientStream(".", Constants.PipeName, Constants.PipeDirection, Constants.PipeOptions);
                 _clientPipe.Connect();
                 _clientPipe.Flush();
-
-                _writer = new StreamWriter(_clientPipe);
-                _writer.AutoFlush = true;
-                _reader = new StreamReader(_clientPipe);
+                _streamString = new StreamString(_clientPipe);
 
                 Application.Current.Dispatcher.Invoke(() =>
                  {
@@ -83,13 +83,13 @@ namespace ClientApp
                 {
                     if (_clientPipe != null && _clientPipe.IsConnected)
                     {
-                        string line = await _reader.ReadLineAsync();
+                        string line = _streamString.ReadString();
 
                         if (!string.IsNullOrWhiteSpace(line))
                         {
-                            if (line == "end")
+                            if (line == Constants.DisconnectKeyword)
                             {
-                                SendMessage("end");
+                                SendMessage(Constants.DisconnectKeyword);
                             }
                             else
                             {
@@ -101,11 +101,11 @@ namespace ClientApp
                         }
                         else
                         {
-                            _close = true;
+                            _serverClose = true;
                         }
                     }
 
-                } while (!_close);
+                } while (!_serverClose);
 
                 _clientPipe.Close();
 
@@ -116,7 +116,7 @@ namespace ClientApp
             }
             catch (IOException)
             {
-                _close = true;
+                _serverClose = true;
                 _clientPipe.Flush();
                 _clientPipe.Close();
             }

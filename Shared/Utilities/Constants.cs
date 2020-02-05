@@ -11,5 +11,7 @@ namespace Shared.Utilities
         public static readonly PipeOptions PipeOptions = PipeOptions.Asynchronous;
 
         public static readonly PipeTransmissionMode PipeTransmissionMode = PipeTransmissionMode.Byte;
+
+        public static readonly string DisconnectKeyword = "end";
     }
 }

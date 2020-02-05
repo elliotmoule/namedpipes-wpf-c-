@@ -33,10 +33,17 @@ namespace ServerApp
         {
             ServerPipe = new ServerPipe(this);
             ServerPipe.ServerClosed += ServerPipe_ServerClosed;
+            ServerPipe.ClientDisconnected += ServerPipe_ClientDisconnected;
+        }
+
+        private void ServerPipe_ClientDisconnected(object sender, EventArgs e)
+        {
+            ServerStopButton.IsEnabled = false;
         }
 
         private void ServerPipe_ServerClosed(object sender, EventArgs e)
         {
+            ServerPipe.ServerClosed -= ServerPipe_ServerClosed;
             ServerPipe.ServerClosed -= ServerPipe_ServerClosed;
             ServerPipe = null;
         }

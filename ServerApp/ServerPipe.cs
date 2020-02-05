@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.IO.Pipes;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -10,10 +11,10 @@ namespace ServerApp
     public class ServerPipe
     {
         private MainWindow _parent;
-        private StreamWriter _writer;
-        private StreamReader _reader;
+        private StreamString _streamString;
         private NamedPipeServerStream _serverPipe;
         public event EventHandler ServerClosed;
+        public event EventHandler ClientDisconnected;
 
         public ServerPipe(MainWindow parent)
         {
@@ -30,11 +31,20 @@ namespace ServerApp
             }
         }
 
+        private void OnClientDisconnect(EventArgs e)
+        {
+            EventHandler handler = ClientDisconnected;
+            if (handler != null)
+            {
+                handler(this, e);
+            }
+        }
+
         public bool SendMessage(string message)
         {
             if (_serverPipe != null && _serverPipe.IsConnected)
             {
-                PipeUtilities.SendPipedMessage(_writer, message);
+                PipeUtilities.SendPipedMessage(_streamString, message);
                 return true;
             }
             return false;
@@ -42,7 +52,7 @@ namespace ServerApp
 
         public void StopServer()
         {
-            SendMessage("end");
+            SendMessage(Constants.DisconnectKeyword);
         }
 
         private void StartServer()
@@ -86,9 +96,8 @@ namespace ServerApp
                                                 ar => _serverPipe.EndWaitForConnection(ar),
                                                 null);
 
-                    _writer = new StreamWriter(_serverPipe);
-                    _writer.AutoFlush = true;
-                    _reader = new StreamReader(_serverPipe);
+                    bool clientDisconnected = false;
+                    _streamString = new StreamString(_serverPipe);
 
                     Application.Current.Dispatcher.Invoke(() =>
                     {
@@ -104,16 +113,16 @@ namespace ServerApp
                             string line = string.Empty;
                             try
                             {
-                                line = await _reader.ReadLineAsync();
+                                line = _streamString.ReadString();
                             }
-                            catch (ObjectDisposedException ex)
+                            catch (Exception ex)
                             {
                                 Console.WriteLine(ex);
                             }
 
                             if (!string.IsNullOrWhiteSpace(line))
                             {
-                                if (line == "end")
+                                if (line == Constants.DisconnectKeyword)
                                 {
                                     break;
                                 }
@@ -132,9 +141,18 @@ namespace ServerApp
                         }
                         else if (!_serverPipe.IsConnected)
                         {
-                            Console.WriteLine("Client disconnected");
+                            clientDisconnected = true;
                             break;
                         }
+                    }
+
+                    if (clientDisconnected)
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            OnClientDisconnect(EventArgs.Empty);
+                        });
+                        clientDisconnected = false;
                     }
 
                     PipeFlushClose(_serverPipe);
@@ -163,9 +181,10 @@ namespace ServerApp
                             npcs.Connect(100);
                         }
                     }
+                    namedPipeServerStream.WaitForPipeDrain();
                     namedPipeServerStream.Flush();
+                    namedPipeServerStream.Disconnect();
                     namedPipeServerStream.Close();
-
                 }
             }
             catch (Exception ex)

@@ -6,19 +6,16 @@ namespace Shared.Utilities
 {
     public static class PipeUtilities
     {
-        public static void SendPipedMessage(StreamWriter writer, string message)
+        public static void SendPipedMessage(StreamString streamString, string message)
         {
             try
             {
                 if (!string.IsNullOrWhiteSpace(message))
                 {
-                    Task.Factory.StartNew(async () =>
+                    if (streamString != null)
                     {
-                        if (writer != null)
-                        {
-                            await writer.WriteLineAsync(message);
-                        }
-                    });
+                        streamString.WriteString(message);
+                    }
                 }
             }
             catch (Exception ex)
