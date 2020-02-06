@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.IO.Pipes;
 using System.Text;
 
 namespace Shared.Utilities
@@ -15,7 +14,7 @@ namespace Shared.Utilities
         public StreamString(Stream ioStream)
         {
             this.ioStream = ioStream;
-            streamEncoding = new UnicodeEncoding();
+            streamEncoding = new UnicodeEncoding();            
         }
 
         public string ReadString()
